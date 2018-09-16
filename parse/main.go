@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/csv"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -13,12 +12,7 @@ type votingRegistry struct {
 	Diputado  string
 	Partido   string
 	Provincia string
-	Voto      string
 	Ley       int
-}
-
-func (v *votingRegistry) print() {
-	fmt.Printf("Diputado: %s, Partido: %s, Provincia: %s, Voto: %s, Ley: %d\n", v.Diputado, v.Partido, v.Provincia, v.Voto, v.Ley)
 }
 
 func main() {
@@ -62,10 +56,16 @@ func readAndParseFiles() []votingRegistry {
 
 			if line[3] == "AFIRMATIVO" {
 				votes = append(votes, votingRegistry{
-					Diputado:  strings.Replace(line[0], ",", "", -1),
-					Partido:   strings.Replace(line[1], ",", "", -1),
-					Provincia: strings.Replace(line[2], ",", "", -1),
-					Voto:      strings.Replace(line[3], ",", "", -1),
+					Diputado:  strings.Replace(line[0], ",", "", -1) + " [AFI]",
+					Partido:   strings.Replace(line[1], ",", "", -1) + " [AFI]",
+					Provincia: strings.Replace(line[2], ",", "", -1) + " [AFI]",
+					Ley:       ley,
+				})
+			} else if line[3] == "NEGATIVO" {
+				votes = append(votes, votingRegistry{
+					Diputado:  strings.Replace(line[0], ",", "", -1) + " [NEG]",
+					Partido:   strings.Replace(line[1], ",", "", -1) + " [NEG]",
+					Provincia: strings.Replace(line[2], ",", "", -1) + " [NEG]",
 					Ley:       ley,
 				})
 			}
