@@ -17,9 +17,11 @@ type votingRegistry struct {
 
 func main() {
 	votes := readAndParseFiles()
-	formatted := formatForRules(votes)
+	formatted, formattedSinProvincias, formattedSinProvinciasNiPartidos := formatForRules(votes)
 
-	outputToCsv(formatted)
+	outputToCsv(formatted, "transactions")
+	outputToCsv(formattedSinProvincias, "sinProvincias")
+	outputToCsv(formattedSinProvinciasNiPartidos, "sinProvinciasNiPartidos")
 }
 
 func readAndParseFiles() []votingRegistry {
@@ -75,8 +77,11 @@ func readAndParseFiles() []votingRegistry {
 	return votes
 }
 
-func formatForRules(votes []votingRegistry) []string {
+func formatForRules(votes []votingRegistry) ([]string, []string, []string) {
 	var formatted []string
+	var formattedSinProvincias []string
+	var formattedSinProvinciasNiPartidos []string
+
 	lawsVotes := make(map[int][]votingRegistry)
 
 	for _, vote := range votes {
@@ -103,13 +108,15 @@ func formatForRules(votes []votingRegistry) []string {
 		}
 
 		formatted = append(formatted, strconv.Itoa(law)+","+strings.Join(dips, ",")+","+strings.Join(parts, ",")+","+strings.Join(provs, ","))
+		formattedSinProvincias = append(formattedSinProvincias, strconv.Itoa(law)+","+strings.Join(dips, ",")+","+strings.Join(parts, ","))
+		formattedSinProvinciasNiPartidos = append(formattedSinProvinciasNiPartidos, strconv.Itoa(law)+","+strings.Join(dips, ","))
 	}
 
-	return formatted
+	return formatted, formattedSinProvincias, formattedSinProvinciasNiPartidos
 }
 
-func outputToCsv(f []string) {
-	file, err := os.Create("./transactions.csv")
+func outputToCsv(f []string, name string) {
+	file, err := os.Create("./" + name + ".csv")
 
 	if err != nil {
 		panic(err)
