@@ -102,7 +102,7 @@ func formatForRules(votes []votingRegistry) []string {
 			}
 		}
 
-		formatted = append(formatted, strconv.Itoa(law)+","+strings.Join(dips, ",")+strings.Join(parts, ",")+strings.Join(provs, ","))
+		formatted = append(formatted, strconv.Itoa(law)+","+strings.Join(dips, ",")+","+strings.Join(parts, ",")+","+strings.Join(provs, ","))
 	}
 
 	return formatted
