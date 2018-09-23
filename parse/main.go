@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/csv"
+	"flag"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -16,7 +17,11 @@ type votingRegistry struct {
 }
 
 func main() {
-	votes := readAndParseFiles()
+	version := flag.String("version", "v1", "Version of the application")
+
+	flag.Parse()
+
+	votes := readAndParseFiles(*version)
 	formatted, formattedSinProvincias, formattedSinProvinciasNiPartidos := formatForRules(votes)
 
 	outputToCsv(formatted, "transactions")
@@ -24,7 +29,7 @@ func main() {
 	outputToCsv(formattedSinProvinciasNiPartidos, "sinProvinciasNiPartidos")
 }
 
-func readAndParseFiles() []votingRegistry {
+func readAndParseFiles(version string) []votingRegistry {
 	files, err := ioutil.ReadDir("./csv-votaciones-periodo-reunion-acta/")
 
 	if err != nil {
@@ -56,18 +61,20 @@ func readAndParseFiles() []votingRegistry {
 				continue
 			}
 
-			if line[3] == "AFIRMATIVO" {
+			vote := line[3]
+
+			if version == "v2" {
 				votes = append(votes, votingRegistry{
-					Diputado:  strings.Replace(line[0], ",", "", -1) + " [AFI]",
-					Partido:   strings.Replace(line[1], ",", "", -1) + " [AFI]",
-					Provincia: strings.Replace(line[2], ",", "", -1) + " [AFI]",
+					Diputado:  vote + "=" + strings.Replace(line[0], ",", "", -1),
+					Partido:   vote + "=" + strings.Replace(line[1], ",", "", -1),
+					Provincia: vote + "=" + strings.Replace(line[2], ",", "", -1),
 					Ley:       ley,
 				})
-			} else if line[3] == "NEGATIVO" {
+			} else {
 				votes = append(votes, votingRegistry{
-					Diputado:  strings.Replace(line[0], ",", "", -1) + " [NEG]",
-					Partido:   strings.Replace(line[1], ",", "", -1) + " [NEG]",
-					Provincia: strings.Replace(line[2], ",", "", -1) + " [NEG]",
+					Diputado:  strings.Replace(line[0], ",", "", -1) + " [" + vote + "]",
+					Partido:   strings.Replace(line[1], ",", "", -1) + " [" + vote + "]",
+					Provincia: strings.Replace(line[2], ",", "", -1) + " [" + vote + "]",
 					Ley:       ley,
 				})
 			}
