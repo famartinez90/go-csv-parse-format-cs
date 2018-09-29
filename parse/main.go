@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/csv"
-	"flag"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -16,20 +15,28 @@ type votingRegistry struct {
 	Ley       int
 }
 
-func main() {
-	version := flag.String("version", "v1", "Version of the application")
-
-	flag.Parse()
-
-	votes := readAndParseFiles(*version)
-	formatted, formattedSinProvincias, formattedSinProvinciasNiPartidos := formatForRules(votes)
-
-	outputToCsv(formatted, "transactions")
-	outputToCsv(formattedSinProvincias, "sinProvincias")
-	outputToCsv(formattedSinProvinciasNiPartidos, "sinProvinciasNiPartidos")
+type groupsPerLaw struct {
+	Parties    map[string]*groupVotesCount
+	Provincies map[string]*groupVotesCount
 }
 
-func readAndParseFiles(version string) []votingRegistry {
+type groupVotesCount struct {
+	Afirmativos  int32
+	Negativos    int32
+	Abstenciones int32
+	Ausencias    int32
+}
+
+func main() {
+	votes, votesGroupedPerLaw := readAndParseFiles()
+	formatted, mayorityAll, mayorityPartyOnly := formatForRules(votes, votesGroupedPerLaw)
+
+	outputToCsv(formatted, "transactions")
+	outputToCsv(mayorityAll, "mayorityAll")
+	outputToCsv(mayorityPartyOnly, "mayorityPartyOnly")
+}
+
+func readAndParseFiles() ([]votingRegistry, map[int]*groupsPerLaw) {
 	files, err := ioutil.ReadDir("./csv-votaciones-periodo-reunion-acta/")
 
 	if err != nil {
@@ -37,8 +44,10 @@ func readAndParseFiles(version string) []votingRegistry {
 	}
 
 	var votes []votingRegistry
+	voteGroupsPerLaw := make(map[int]*groupsPerLaw)
 
-	for ley, f := range files {
+	for index, f := range files {
+		ley := index + 1
 		csvFile, err := os.Open("./csv-votaciones-periodo-reunion-acta/" + f.Name())
 
 		if err != nil {
@@ -57,37 +66,71 @@ func readAndParseFiles(version string) []votingRegistry {
 		}
 
 		for _, line := range lines {
-			if line[1] == "BLOQUE" {
+			if line[1] == "BLOQUE" ||
+				line[0] == "DE VIDO, Julio (Suspendido Art 70 C.N.)" {
 				continue
 			}
 
-			vote := line[3]
+			vote := string(parseVote(line[3]))
+			partido := strings.Replace(line[1], ",", "", -1)
+			provincia := strings.Replace(line[2], ",", "", -1)
 
-			if version == "v2" {
-				votes = append(votes, votingRegistry{
-					Diputado:  vote + "=" + strings.Replace(line[0], ",", "", -1),
-					Partido:   vote + "=" + strings.Replace(line[1], ",", "", -1),
-					Provincia: vote + "=" + strings.Replace(line[2], ",", "", -1),
-					Ley:       ley,
-				})
-			} else {
-				votes = append(votes, votingRegistry{
-					Diputado:  strings.Replace(line[0], ",", "", -1) + " [" + vote + "]",
-					Partido:   strings.Replace(line[1], ",", "", -1) + " [" + vote + "]",
-					Provincia: strings.Replace(line[2], ",", "", -1) + " [" + vote + "]",
-					Ley:       ley,
-				})
+			votes = append(votes, votingRegistry{
+				Diputado:  vote + "=" + minimizeName(line[0]),
+				Partido:   vote + "=" + partido,
+				Provincia: vote + "=" + provincia,
+				Ley:       ley,
+			})
+
+			if _, ok := voteGroupsPerLaw[ley]; !ok {
+				voteGroupsPerLaw[ley] = &groupsPerLaw{
+					Parties:    make(map[string]*groupVotesCount),
+					Provincies: make(map[string]*groupVotesCount),
+				}
+			}
+
+			if _, ok := voteGroupsPerLaw[ley].Parties[partido]; !ok {
+				voteGroupsPerLaw[ley].Parties[partido] = &groupVotesCount{
+					Afirmativos:  0,
+					Negativos:    0,
+					Abstenciones: 0,
+					Ausencias:    0,
+				}
+			}
+
+			if _, ok := voteGroupsPerLaw[ley].Provincies[provincia]; !ok {
+				voteGroupsPerLaw[ley].Provincies[provincia] = &groupVotesCount{
+					Afirmativos:  0,
+					Negativos:    0,
+					Abstenciones: 0,
+					Ausencias:    0,
+				}
+			}
+
+			switch vote {
+			case "A":
+				voteGroupsPerLaw[ley].Parties[partido].Afirmativos++
+				voteGroupsPerLaw[ley].Provincies[provincia].Afirmativos++
+			case "U":
+				voteGroupsPerLaw[ley].Parties[partido].Ausencias++
+				voteGroupsPerLaw[ley].Provincies[provincia].Ausencias++
+			case "N":
+				voteGroupsPerLaw[ley].Parties[partido].Negativos++
+				voteGroupsPerLaw[ley].Provincies[provincia].Negativos++
+			case "B":
+				voteGroupsPerLaw[ley].Parties[partido].Abstenciones++
+				voteGroupsPerLaw[ley].Provincies[provincia].Abstenciones++
 			}
 		}
 	}
 
-	return votes
+	return votes, voteGroupsPerLaw
 }
 
-func formatForRules(votes []votingRegistry) ([]string, []string, []string) {
+func formatForRules(votes []votingRegistry, votesGroupedPerLaw map[int]*groupsPerLaw) ([]string, []string, []string) {
 	var formatted []string
-	var formattedSinProvincias []string
-	var formattedSinProvinciasNiPartidos []string
+	var mayorityAll []string
+	var mayorityPartyOnly []string
 
 	lawsVotes := make(map[int][]votingRegistry)
 
@@ -114,12 +157,26 @@ func formatForRules(votes []votingRegistry) ([]string, []string, []string) {
 			}
 		}
 
+		var mayorityVoteParty []string
+
+		for party, data := range votesGroupedPerLaw[law].Parties {
+			mayorityVote := getMayorityVote(data)
+			mayorityVoteParty = append(mayorityVoteParty, mayorityVote+"="+party)
+		}
+
+		var mayorityVoteProvince []string
+
+		for province, data := range votesGroupedPerLaw[law].Provincies {
+			mayorityVote := getMayorityVote(data)
+			mayorityVoteProvince = append(mayorityVoteProvince, mayorityVote+"="+province)
+		}
+
 		formatted = append(formatted, strconv.Itoa(law)+","+strings.Join(dips, ",")+","+strings.Join(parts, ",")+","+strings.Join(provs, ","))
-		formattedSinProvincias = append(formattedSinProvincias, strconv.Itoa(law)+","+strings.Join(dips, ",")+","+strings.Join(parts, ","))
-		formattedSinProvinciasNiPartidos = append(formattedSinProvinciasNiPartidos, strconv.Itoa(law)+","+strings.Join(dips, ","))
+		mayorityAll = append(mayorityAll, strconv.Itoa(law)+","+strings.Join(dips, ",")+","+strings.Join(mayorityVoteParty, ",")+","+strings.Join(mayorityVoteProvince, ","))
+		mayorityPartyOnly = append(mayorityPartyOnly, strconv.Itoa(law)+","+strings.Join(dips, ",")+","+strings.Join(mayorityVoteParty, ","))
 	}
 
-	return formatted, formattedSinProvincias, formattedSinProvinciasNiPartidos
+	return formatted, mayorityAll, mayorityPartyOnly
 }
 
 func outputToCsv(f []string, name string) {
@@ -151,4 +208,65 @@ func contains(s []string, search string) bool {
 	}
 
 	return false
+}
+
+func parseVote(vote string) rune {
+	var parsed rune
+
+	switch vote {
+	case "AFIRMATIVO":
+		parsed = 'A'
+	case "AUSENTE":
+		parsed = 'U'
+	case "NEGATIVO":
+		parsed = 'N'
+	case "PRESIDENTE":
+		parsed = 'P'
+	case "ABSTENCION":
+		parsed = 'B'
+	}
+
+	return parsed
+}
+
+func minimizeName(name string) string {
+	apellidoNombre := strings.Split(name, ",")
+	minimized := apellidoNombre[0]
+
+	nombres := strings.Split(apellidoNombre[1], " ")
+
+	for _, nombre := range nombres {
+		if nombre != "" {
+			minimized += " " + string(nombre[0])
+		}
+	}
+
+	return minimized
+}
+
+func getMayorityVote(data *groupVotesCount) string {
+	var maxVotes int32
+	var maxVoteLetter string
+
+	if data.Afirmativos > maxVotes {
+		maxVotes = data.Afirmativos
+		maxVoteLetter = "A"
+	}
+
+	if data.Negativos > maxVotes {
+		maxVotes = data.Negativos
+		maxVoteLetter = "N"
+	}
+
+	if data.Abstenciones > maxVotes {
+		maxVotes = data.Abstenciones
+		maxVoteLetter = "B"
+	}
+
+	if data.Ausencias > maxVotes {
+		maxVotes = data.Ausencias
+		maxVoteLetter = "U"
+	}
+
+	return maxVoteLetter
 }
