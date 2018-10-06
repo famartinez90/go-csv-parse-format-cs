@@ -29,12 +29,14 @@ type groupVotesCount struct {
 
 func main() {
 	votes, votesGroupedPerLaw := readAndParseFiles()
-	formatted, mayorityAll, mayorityPartyOnly, mayorityPartyOnlyAndNoDips := formatForRules(votes, votesGroupedPerLaw)
+	formatted, mayorityAll, mayorityPartyOnly, mayorityPartyOnlyAndNoDips, mayorityProvinciesOnlyAndNoDips, mayorityPartyProvinciesOnlyAndNoDips := formatForRules(votes, votesGroupedPerLaw)
 
 	outputToCsv(formatted, "transactions")
 	outputToCsv(mayorityAll, "mayorityAll")
 	outputToCsv(mayorityPartyOnly, "mayorityPartyOnly")
 	outputToCsv(mayorityPartyOnlyAndNoDips, "mayorityPartyOnlyAndNoDips")
+	outputToCsv(mayorityProvinciesOnlyAndNoDips, "mayorityProvinciesOnlyAndNoDips")
+	outputToCsv(mayorityPartyProvinciesOnlyAndNoDips, "mayorityPartyProvinciesOnlyAndNoDips")
 }
 
 func readAndParseFiles() ([]votingRegistry, map[int]*groupsPerLaw) {
@@ -129,11 +131,13 @@ func readAndParseFiles() ([]votingRegistry, map[int]*groupsPerLaw) {
 	return votes, voteGroupsPerLaw
 }
 
-func formatForRules(votes []votingRegistry, votesGroupedPerLaw map[int]*groupsPerLaw) ([]string, []string, []string, []string) {
+func formatForRules(votes []votingRegistry, votesGroupedPerLaw map[int]*groupsPerLaw) ([]string, []string, []string, []string, []string, []string) {
 	var formatted []string
 	var mayorityAll []string
 	var mayorityPartyOnly []string
 	var mayorityPartyOnlyAndNoDips []string
+	var mayorityProvinciesOnlyAndNoDips []string
+	var mayorityPartyProvinciesOnlyAndNoDips []string
 
 	lawsVotes := make(map[int][]votingRegistry)
 
@@ -178,9 +182,11 @@ func formatForRules(votes []votingRegistry, votesGroupedPerLaw map[int]*groupsPe
 		mayorityAll = append(mayorityAll, strconv.Itoa(law)+","+strings.Join(dips, ",")+","+strings.Join(mayorityVoteParty, ",")+","+strings.Join(mayorityVoteProvince, ","))
 		mayorityPartyOnly = append(mayorityPartyOnly, strconv.Itoa(law)+","+strings.Join(dips, ",")+","+strings.Join(mayorityVoteParty, ","))
 		mayorityPartyOnlyAndNoDips = append(mayorityPartyOnlyAndNoDips, strconv.Itoa(law)+","+strings.Join(mayorityVoteParty, ","))
+		mayorityProvinciesOnlyAndNoDips = append(mayorityProvinciesOnlyAndNoDips, strconv.Itoa(law)+","+strings.Join(mayorityVoteProvince, ","))
+		mayorityPartyProvinciesOnlyAndNoDips = append(mayorityPartyProvinciesOnlyAndNoDips, strconv.Itoa(law)+","+strings.Join(mayorityVoteParty, ",")+","+strings.Join(mayorityVoteProvince, ","))
 	}
 
-	return formatted, mayorityAll, mayorityPartyOnly, mayorityPartyOnlyAndNoDips
+	return formatted, mayorityAll, mayorityPartyOnly, mayorityPartyOnlyAndNoDips, mayorityProvinciesOnlyAndNoDips, mayorityPartyProvinciesOnlyAndNoDips
 }
 
 func outputToCsv(f []string, name string) {
