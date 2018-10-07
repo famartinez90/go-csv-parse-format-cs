@@ -29,7 +29,7 @@ type groupVotesCount struct {
 
 func main() {
 	votes, votesGroupedPerLaw := readAndParseFiles()
-	formatted, mayorityAll, mayorityPartyOnly, mayorityPartyOnlyAndNoDips, mayorityProvinciesOnlyAndNoDips, mayorityPartyProvinciesOnlyAndNoDips := formatForRules(votes, votesGroupedPerLaw)
+	formatted, mayorityAll, mayorityPartyOnly, mayorityPartyOnlyAndNoDips, mayorityProvinciesOnlyAndNoDips, mayorityPartyProvinciesOnlyAndNoDips, PROOnly, FPVOnly := formatForRules(votes, votesGroupedPerLaw)
 
 	outputToCsv(formatted, "transactions")
 	outputToCsv(mayorityAll, "mayorityAll")
@@ -37,6 +37,8 @@ func main() {
 	outputToCsv(mayorityPartyOnlyAndNoDips, "mayorityPartyOnlyAndNoDips")
 	outputToCsv(mayorityProvinciesOnlyAndNoDips, "mayorityProvinciesOnlyAndNoDips")
 	outputToCsv(mayorityPartyProvinciesOnlyAndNoDips, "mayorityPartyProvinciesOnlyAndNoDips")
+	outputToCsv(PROOnly, "PROOnly")
+	outputToCsv(FPVOnly, "FPVOnly")
 }
 
 func readAndParseFiles() ([]votingRegistry, map[int]*groupsPerLaw) {
@@ -131,13 +133,15 @@ func readAndParseFiles() ([]votingRegistry, map[int]*groupsPerLaw) {
 	return votes, voteGroupsPerLaw
 }
 
-func formatForRules(votes []votingRegistry, votesGroupedPerLaw map[int]*groupsPerLaw) ([]string, []string, []string, []string, []string, []string) {
+func formatForRules(votes []votingRegistry, votesGroupedPerLaw map[int]*groupsPerLaw) ([]string, []string, []string, []string, []string, []string, []string, []string) {
 	var formatted []string
 	var mayorityAll []string
 	var mayorityPartyOnly []string
 	var mayorityPartyOnlyAndNoDips []string
 	var mayorityProvinciesOnlyAndNoDips []string
 	var mayorityPartyProvinciesOnlyAndNoDips []string
+	var PROOnly []string
+	var FPVOnly []string
 
 	lawsVotes := make(map[int][]votingRegistry)
 
@@ -149,6 +153,8 @@ func formatForRules(votes []votingRegistry, votesGroupedPerLaw map[int]*groupsPe
 		var dips []string
 		var parts []string
 		var provs []string
+		var dipsPRO []string
+		var dipsFPV []string
 
 		for _, vote := range data {
 			if !contains(dips, vote.Diputado) {
@@ -161,6 +167,18 @@ func formatForRules(votes []votingRegistry, votesGroupedPerLaw map[int]*groupsPe
 
 			if !contains(provs, vote.Provincia) {
 				provs = append(provs, vote.Provincia)
+			}
+
+			if strings.Contains(vote.Partido, "PRO") {
+				if !contains(dipsPRO, vote.Diputado) {
+					dipsPRO = append(dipsPRO, vote.Diputado)
+				}
+			}
+
+			if strings.Contains(vote.Partido, "Frente para la Victoria - PJ") {
+				if !contains(dipsFPV, vote.Diputado) {
+					dipsFPV = append(dipsFPV, vote.Diputado)
+				}
 			}
 		}
 
@@ -184,9 +202,11 @@ func formatForRules(votes []votingRegistry, votesGroupedPerLaw map[int]*groupsPe
 		mayorityPartyOnlyAndNoDips = append(mayorityPartyOnlyAndNoDips, strconv.Itoa(law)+","+strings.Join(mayorityVoteParty, ","))
 		mayorityProvinciesOnlyAndNoDips = append(mayorityProvinciesOnlyAndNoDips, strconv.Itoa(law)+","+strings.Join(mayorityVoteProvince, ","))
 		mayorityPartyProvinciesOnlyAndNoDips = append(mayorityPartyProvinciesOnlyAndNoDips, strconv.Itoa(law)+","+strings.Join(mayorityVoteParty, ",")+","+strings.Join(mayorityVoteProvince, ","))
+		PROOnly = append(PROOnly, strconv.Itoa(law)+","+strings.Join(dipsPRO, ","))
+		FPVOnly = append(FPVOnly, strconv.Itoa(law)+","+strings.Join(dipsFPV, ","))
 	}
 
-	return formatted, mayorityAll, mayorityPartyOnly, mayorityPartyOnlyAndNoDips, mayorityProvinciesOnlyAndNoDips, mayorityPartyProvinciesOnlyAndNoDips
+	return formatted, mayorityAll, mayorityPartyOnly, mayorityPartyOnlyAndNoDips, mayorityProvinciesOnlyAndNoDips, mayorityPartyProvinciesOnlyAndNoDips, PROOnly, FPVOnly
 }
 
 func outputToCsv(f []string, name string) {
