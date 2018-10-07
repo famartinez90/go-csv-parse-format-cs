@@ -155,6 +155,8 @@ func formatForRules(votes []votingRegistry, votesGroupedPerLaw map[int]*groupsPe
 		var provs []string
 		var dipsPRO []string
 		var dipsFPV []string
+		var filteredDipsPRO []string
+		var filteredDipsFPV []string
 
 		for _, vote := range data {
 			if !contains(dips, vote.Diputado) {
@@ -187,6 +189,34 @@ func formatForRules(votes []votingRegistry, votesGroupedPerLaw map[int]*groupsPe
 		for party, data := range votesGroupedPerLaw[law].Parties {
 			mayorityVote := getMayorityVote(data)
 			mayorityVoteParty = append(mayorityVoteParty, mayorityVote+"="+party)
+
+			if strings.Contains(party, "Frente para la Victoria - PJ") {
+				for _, dip := range dipsFPV {
+					if mayorityVote == "A" {
+						if !strings.Contains(dip, "A=") {
+							filteredDipsFPV = append(filteredDipsFPV, dip)
+						}
+					} else if mayorityVote == "N" {
+						if !strings.Contains(dip, "N=") {
+							filteredDipsFPV = append(filteredDipsFPV, dip)
+						}
+					}
+				}
+			}
+
+			if strings.Contains(party, "Frente para la Victoria - PJ") {
+				for _, dip := range dipsPRO {
+					if mayorityVote == "A" {
+						if !strings.Contains(dip, "A=") {
+							filteredDipsPRO = append(filteredDipsPRO, dip)
+						}
+					} else if mayorityVote == "N" {
+						if !strings.Contains(dip, "N=") {
+							filteredDipsPRO = append(filteredDipsPRO, dip)
+						}
+					}
+				}
+			}
 		}
 
 		var mayorityVoteProvince []string
@@ -202,8 +232,16 @@ func formatForRules(votes []votingRegistry, votesGroupedPerLaw map[int]*groupsPe
 		mayorityPartyOnlyAndNoDips = append(mayorityPartyOnlyAndNoDips, strconv.Itoa(law)+","+strings.Join(mayorityVoteParty, ","))
 		mayorityProvinciesOnlyAndNoDips = append(mayorityProvinciesOnlyAndNoDips, strconv.Itoa(law)+","+strings.Join(mayorityVoteProvince, ","))
 		mayorityPartyProvinciesOnlyAndNoDips = append(mayorityPartyProvinciesOnlyAndNoDips, strconv.Itoa(law)+","+strings.Join(mayorityVoteParty, ",")+","+strings.Join(mayorityVoteProvince, ","))
-		PROOnly = append(PROOnly, strconv.Itoa(law)+","+strings.Join(dipsPRO, ","))
-		FPVOnly = append(FPVOnly, strconv.Itoa(law)+","+strings.Join(dipsFPV, ","))
+
+		for _, voteParty := range mayorityVoteParty {
+			if strings.Contains(voteParty, "PRO") {
+				PROOnly = append(PROOnly, strconv.Itoa(law)+","+voteParty+","+strings.Join(filteredDipsPRO, ","))
+			}
+
+			if strings.Contains(voteParty, "Frente para la Victoria - PJ") {
+				FPVOnly = append(FPVOnly, strconv.Itoa(law)+","+voteParty+","+strings.Join(filteredDipsFPV, ","))
+			}
+		}
 	}
 
 	return formatted, mayorityAll, mayorityPartyOnly, mayorityPartyOnlyAndNoDips, mayorityProvinciesOnlyAndNoDips, mayorityPartyProvinciesOnlyAndNoDips, PROOnly, FPVOnly
